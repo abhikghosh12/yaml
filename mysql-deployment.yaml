@@ -1,0 +1,148 @@
+# For 8.0 we have to change the authentication back to the old approach
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  ## name of ConfigMap. This will be referred from volume definition
+  name: mysql-config
+  labels:
+    app: mysql
+data:
+  ## default_auth is the name of config. This will be referred from volume mount definition
+  default_auth: |
+    [mysqld]
+    default_authentication_plugin=mysql_native_password
+---
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: mysqlstorageclass
+provisioner: docker.io/hostpath
+---
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: mysqlinitstorageclass
+provisioner: docker.io/hostpath
+---
+ kind: PersistentVolume
+ apiVersion: v1
+ metadata:
+   name: mysqlinit-pv-volume
+   labels:
+     type: ltp
+ spec:
+   storageClassName: mysqlinitstorageclass
+   capacity:
+     storage: 20Gi
+   accessModes:
+     - ReadWriteOnce
+   hostPath:
+     path: "%%K8S_MYSQL_INITDB%%"
+---
+ kind: PersistentVolume
+ apiVersion: v1
+ metadata:
+   name: mysql-pv-volume
+   labels:
+     type: ltp
+ spec:
+   storageClassName: mysqlstorageclass
+   capacity:
+     storage: 20Gi
+   accessModes:
+     - ReadWriteOnce
+   hostPath:
+     path: "%%K8S_MYSQL_DATA%%"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: iiq-mysql
+  labels:
+    app: iiq
+spec:
+  ports:
+    - port: 3306
+  selector:
+    app: iiq
+    tier: mysql
+  clusterIP: None
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysql-pv-claim
+  labels:
+    app: iiq
+spec:
+  storageClassName: mysqlstorageclass
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mysqlinit-pv-claim
+  labels:
+    app: iiq
+spec:
+  storageClassName: mysqlinitstorageclass
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+---
+apiVersion: apps/v1 # for versions before 1.9.0 use apps/v1beta2
+kind: Deployment
+metadata:
+  name: iiq-mysql
+  labels:
+    app: iiq
+spec:
+  selector:
+    matchLabels:
+      app: iiq
+      tier: mysql
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: iiq
+        tier: mysql
+    spec:
+      containers:
+      - image: %%K8S_MYSQL_IMAGE%%
+        name: mysql
+        imagePullPolicy: Always
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-pass
+              key: password
+        ports:
+        - containerPort: 3306
+          name: mysql
+        volumeMounts:
+        - name: mysql-persistent-storage
+          mountPath: /var/lib/mysql
+        - name: mysqlinit-persistent-storage
+          mountPath: /docker-entrypoint-initdb.d
+        - name: mysql-config-volume 
+          mountPath: /etc/mysql/conf.d/default_auth.cnf
+          subPath: default_auth
+      volumes:
+      - name: mysql-persistent-storage
+        persistentVolumeClaim:
+          claimName: mysql-pv-claim 
+      - name: mysqlinit-persistent-storage
+        persistentVolumeClaim:
+          claimName: mysqlinit-pv-claim
+      - name: mysql-config-volume
+        configMap:
+          name: mysql-config

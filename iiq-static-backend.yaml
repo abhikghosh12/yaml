@@ -1,0 +1,30 @@
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: iiq
+  name: iiqbackend
+  labels:
+    app: iiqbackend
+spec:
+  selector:
+    app: iiqbackend
+    tier: backend
+  clusterIP: None
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  namespace: iiq
+  name: iiqbackend1
+  labels:
+    name: iiqbackend
+spec:
+  hostname: iiqbackend-1
+  subdomain: default-subdomain
+  containers:
+  - image:  %%docker.fullImageName%%
+    imagePullPolicy: IfNotPresent
+    name: identityiq82
+    env:
+      - name: JAVA_OPTS
+        value: %%DOCKER_JAVA_OPTIONS%% 

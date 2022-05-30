@@ -1,0 +1,39 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: iiqfrontend
+  namespace: iiq
+  labels:
+    app: iiqfrontend
+spec:
+  ports:
+    - name: iiq-port
+      protocol: TCP
+      port: %%K8S_HTTP_PORT%%
+      targetPort: %%K8S_HTTP_PORT%%
+  selector:
+    app: iiqfrontend
+    tier: frontend
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  namespace: haproxy-controller
+  name: iiqfrontend1
+  labels:
+    name: iiqfrontend
+    app: iiqfrontend
+    tier: frontend
+spec:
+  hostname: iiqfrontend-1
+#  subdomain: default-subdomain
+  containers:
+  - image:  %%docker.fullImageName%%
+    imagePullPolicy: IfNotPresent
+    name: identityiq82
+    env:
+      - name: JAVA_OPTS
+        value: %%DOCKER_JAVA_OPTIONS%%
+    ports:
+      - containerPort: %%K8S_HTTP_PORT%%
+        name: iiqfrontend

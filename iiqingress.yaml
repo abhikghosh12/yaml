@@ -1,0 +1,33 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: iiq-ingress
+  annotations:
+     haproxy.org/forwarded-for: "enabled"
+     haproxy.org/load-balance: "roundrobin"
+     haproxy.org/cookie-persistence: "iiqcookie" 
+spec:
+  tls:
+  - hosts:
+    - abcd
+    secretName: iiqssl #test-tls
+  rules:
+  - host: abcd
+    http:
+      paths:
+      - path: /
+        pathType: ImplementationSpecific
+        backend:
+          service:
+             name: iiqfrontend
+             port: 
+                number: %%K8S_HTTP_PORT%%
+  - http:
+      paths:
+      - path: /
+        pathType: ImplementationSpecific
+        backend:
+          service:
+             name: iiqfrontend
+             port: 
+                number: %%K8S_HTTP_PORT%%

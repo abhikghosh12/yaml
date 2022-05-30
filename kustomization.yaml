@@ -1,0 +1,11 @@
+secretGenerator:
+- name: db-pass
+  literals:
+  - password=$ailpoint123!
+resources:
+  - iiqssl.yaml #uncomment this if you do not have other tls key defined!
+  - haproxy-ingress.yaml
+  - mysql-deployment.yaml
+  - iiqingress.yaml
+  - iiq-static-backend.yaml
+  - iiq-static-frontend.yaml
